@@ -45,8 +45,8 @@ def auto_unit(values, is_freq=False):
     p99 = np.percentile(np.abs(values), 99)
 
     if is_freq:
-        # frequency: ppm or ppb
-        if p99 < 0.001:
+        # frequency: ppm or ppb (values from NTP are in ppm)
+        if p99 < 1.0:
             return "ppb", 1e3  # ppm -> ppb
         return "ppm", 1
     else:

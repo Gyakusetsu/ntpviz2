@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ntpviz2-build.py - Generate JSON data for ntpviz 2.0 interactive dashboard.
 
-Reads NTPsec log files and produces downsampled JSON data files
+Reads NTPsec log files and produces JSON data files
 suitable for rendering with uPlot in the browser.
 """
 
@@ -32,33 +32,6 @@ def parse_args():
                    help="Site name (default: hostname)")
     return p.parse_args()
 
-
-def downsample(times, values, bucket_secs):
-    """Downsample time series into fixed-width bucket averages.
-
-    Args:
-        times: numpy array of unix timestamps (seconds)
-        values: numpy array of float values
-        bucket_secs: bucket width in seconds
-
-    Returns:
-        (bucket_times, bucket_means) as numpy arrays
-    """
-    if len(times) == 0:
-        return np.array([]), np.array([])
-
-    bucket_ids = (times // bucket_secs).astype(np.int64)
-    unique_buckets = np.unique(bucket_ids)
-
-    out_times = np.empty(len(unique_buckets))
-    out_values = np.empty(len(unique_buckets))
-
-    for i, bid in enumerate(unique_buckets):
-        mask = bucket_ids == bid
-        out_times[i] = times[mask].mean()
-        out_values[i] = values[mask].mean()
-
-    return out_times, out_values
 
 
 def auto_unit(values, is_freq=False):
@@ -141,8 +114,11 @@ def round_list(arr, decimals=6):
     return [round(float(x), decimals) for x in arr]
 
 
-def build_loopstats(stats, bucket_secs):
+def build_loopstats(stats):
     """Build loopstats JSON from NTPStats object.
+
+    Emits raw (non-downsampled) data to preserve spikes and noise
+    visible in the legacy gnuplot ntpviz charts.
 
     loopstats row format after unixize:
         [ms_int, unix_str, offset, frequency, jitter, stability, ...]
@@ -157,18 +133,13 @@ def build_loopstats(stats, bucket_secs):
     jitter = np.array([float(r[4]) for r in rows])
     stability = np.array([float(r[5]) for r in rows])
 
-    t_o, d_offset = downsample(times, offset, bucket_secs)
-    t_f, d_freq = downsample(times, freq, bucket_secs)
-    t_j, d_jitter = downsample(times, jitter, bucket_secs)
-    t_s, d_stab = downsample(times, stability, bucket_secs)
-
     return {
         "data": {
-            "time": round_list(t_o, 1),
-            "offset": round_list(d_offset, 10),
-            "frequency": round_list(d_freq, 6),
-            "jitter": round_list(d_jitter, 10),
-            "stability": round_list(d_stab, 10),
+            "time": round_list(times, 1),
+            "offset": round_list(offset, 10),
+            "frequency": round_list(freq, 6),
+            "jitter": round_list(jitter, 10),
+            "stability": round_list(stability, 10),
         },
         "raw_count": len(rows),
     }
@@ -345,20 +316,21 @@ def main():
 
         sys.stderr.write("Building %s data...\n" % label)
 
+        # NTPStats.peermap is a class-level dict shared across instances.
+        # Reset it so each period gets its own peersplit() result.
+        ntp.statfiles.NTPStats.peermap = {}
+
         stats = ntp.statfiles.NTPStats(
             statsdir=args.logdir,
             sitename=args.name,
             period=period_secs,
         )
 
-        # Choose bucket size: 30s for 1 day, 120s for 7 days
-        bucket_secs = 30 if period <= 1 else 120
-
         outdir = os.path.join(args.outdir, "data", label)
         os.makedirs(outdir, exist_ok=True)
 
         # Build and write each JSON file
-        loopdata = build_loopstats(stats, bucket_secs)
+        loopdata = build_loopstats(stats)
         if loopdata:
             write_json(os.path.join(outdir, "loopstats.json"), loopdata)
 

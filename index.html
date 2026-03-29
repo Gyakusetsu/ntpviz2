@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="1800">
+<meta name="color-scheme" content="dark">
+<title>ntpviz 2.0</title>
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.min.css">
+<style>
+/* ─── Variables & Reset ─── */
+:root {
+  --bg: #0b0d13;
+  --bg2: #10131b;
+  --card: #141720;
+  --card-hover: #191d28;
+  --border: rgba(255,255,255,0.06);
+  --border-hover: rgba(255,255,255,0.12);
+  --text: #dfe5ef;
+  --text2: #7b8698;
+  --text3: #3d4655;
+  --accent: #e8993e;
+  --accent-glow: rgba(232,153,62,0.15);
+  --header-bg: rgba(11,13,19,0.88);
+}
+html { scroll-behavior: smooth; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+/* ─── Body & Background ─── */
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  position: relative;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(232,153,62,0.025) 0%, transparent 100%),
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,0.012) 1px, transparent 0);
+  background-size: 100% 100%, 24px 24px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Header ─── */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--header-bg);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 28px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+header img { height: 32px; opacity: 0.9; }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.brand-text { display: flex; flex-direction: column; gap: 1px; }
+.brand .title {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1em;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #f0f2f5;
+}
+.brand .subtitle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.65em;
+  color: var(--accent);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+header .meta {
+  color: var(--text2);
+  font-size: 0.78em;
+  margin-left: auto;
+  text-align: right;
+  font-family: 'IBM Plex Mono', monospace;
+  line-height: 1.5;
+}
+
+/* ─── Container ─── */
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+/* ─── Section Titles ─── */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Syne', sans-serif;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  color: var(--text2);
+  margin: 36px 0 16px;
+  padding: 0;
+  border: none;
+}
+.section-title::before {
+  content: '';
+  width: 3px;
+  height: 16px;
+  background: var(--accent);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ─── Cards ─── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+.card:hover {
+  border-left-color: var(--accent);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+  transform: translateY(-1px);
+}
+.card h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.9em;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--text);
+  letter-spacing: 0.3px;
+}
+.card .chart-wrap { width: 100%; overflow-x: auto; }
+.card .description {
+  font-size: 0.78em;
+  color: var(--text2);
+  margin-top: 10px;
+  line-height: 1.5;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+/* ─── Chart Grid ─── */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* ─── Stats Table ─── */
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72em;
+  font-family: 'IBM Plex Mono', monospace;
+  margin-top: 12px;
+  overflow-x: auto;
+  display: block;
+}
+.stats-table th, .stats-table td {
+  padding: 5px 8px;
+  text-align: right;
+  white-space: nowrap;
+}
+.stats-table th {
+  font-weight: 500;
+  text-align: right;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  color: var(--text2);
+  font-size: 0.95em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stats-table th:first-child, .stats-table td:first-child { text-align: left; }
+.stats-table td { color: var(--text); }
+.stats-table td:first-child { color: var(--accent); font-weight: 500; }
+.stats-table tbody tr { transition: background 0.15s; }
+.stats-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.015); }
+.stats-table tbody tr:hover { background: rgba(232,153,62,0.05); }
+
+/* ─── Floating Period Toggle ─── */
+.floating-toggle {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  background: rgba(14,17,24,0.92);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 100px;
+  padding: 4px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
+  transition: box-shadow 0.3s;
+}
+.floating-toggle:hover {
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 24px rgba(232,153,62,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.floating-toggle button {
+  padding: 8px 22px;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  font-family: 'Syne', sans-serif;
+  font-size: 0.75em;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 100px;
+  transition: all 0.3s ease;
+}
+.floating-toggle button:hover:not(.active) { color: var(--text2); }
+.floating-toggle button.active {
+  background: var(--accent);
+  color: #0b0d13;
+  box-shadow: 0 0 20px rgba(232,153,62,0.3);
+}
+
+/* ─── uPlot Overrides ─── */
+.u-legend { font-family: 'IBM Plex Mono', monospace; font-size: 0.72em; }
+.u-legend th { color: var(--text2) !important; }
+.u-legend td { color: var(--text) !important; }
+.u-over { cursor: crosshair !important; }
+
+/* ─── Glossary ─── */
+details.glossary {
+  margin-top: 32px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+details.glossary summary {
+  cursor: pointer;
+  font-family: 'Syne', sans-serif;
+  font-weight: 600;
+  font-size: 0.95em;
+  padding: 8px 0;
+  color: var(--text2);
+  transition: color 0.2s;
+}
+details.glossary summary:hover { color: var(--text); }
+details.glossary[open] dl { animation: glossaryReveal 0.3s ease; }
+@keyframes glossaryReveal {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+details.glossary dl { margin: 16px 0; }
+details.glossary dt {
+  font-weight: 500;
+  margin: 14px 0 3px 16px;
+  color: var(--accent);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.88em;
+}
+details.glossary dd {
+  margin: 0 0 8px 16px;
+  color: var(--text2);
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+
+/* ─── Footer ─── */
+.footer {
+  text-align: center;
+  padding: 32px 20px;
+  color: var(--text3);
+  font-size: 0.78em;
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+.footer a { color: var(--accent); text-decoration: none; transition: color 0.2s; }
+.footer a:hover { color: #ffb84d; }
+
+/* ─── Loading ─── */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 80px 20px;
+  color: var(--text2);
+  font-size: 0.88em;
+  font-family: 'IBM Plex Mono', monospace;
+}
+.loading::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: loadPulse 1.4s ease-in-out infinite;
+}
+@keyframes loadPulse {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* ─── Scroll Reveal ─── */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+  .chart-row { grid-template-columns: 1fr; }
+  header { padding: 10px 16px; flex-direction: column; align-items: flex-start; }
+  header .meta { margin-left: 0; text-align: left; }
+  .container { padding: 16px 12px 100px; }
+  .floating-toggle { bottom: 16px; right: 16px; }
+  .card { padding: 14px 16px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <img src="ntpsec-logo.png" alt="NTPsec">
+    <div class="brand-text">
+      <span class="title" id="site-name">NTP Server</span>
+      <span class="subtitle">ntpviz 2.0</span>
+    </div>
+  </div>
+  <div class="meta">
+    <div id="generated"></div>
+    <div id="period-info"></div>
+  </div>
+</header>
+
+<div class="container">
+  <div id="main-content">
+    <div class="loading">Loading data...</div>
+  </div>
+
+  <details class="glossary">
+    <summary>Glossary</summary>
+    <dl>
+      <dt>frequency offset</dt>
+      <dd>The difference between the ntpd calculated frequency and the local system clock frequency (usually in parts per million, ppm)</dd>
+      <dt>jitter, dispersion</dt>
+      <dd>The short term change in a value. NTP measures Local Time Jitter, Refclock Jitter, and Server Jitter in seconds. Local Frequency Jitter is in ppm or ppb.</dd>
+      <dt>kurtosis, Kurt</dt>
+      <dd>The kurtosis of a random variable X is the fourth standardized moment and is a dimension-less ratio. ntpviz uses the Pearson's moment coefficient of kurtosis. A normal distribution has a kurtosis of three. NIST describes a kurtosis over three as "heavy tailed" and one under three as "light tailed".</dd>
+      <dt>ms, millisecond</dt>
+      <dd>One thousandth of a second = 0.001 seconds, 1e-3 seconds</dd>
+      <dt>mu, mean</dt>
+      <dd>The arithmetic mean: the sum of all the values divided by the number of values. The formula for mu is: "mu = (&sum;x<sub>i</sub>) / N".</dd>
+      <dt>ns, nanosecond</dt>
+      <dd>One billionth of a second, also one thousandth of a microsecond, 0.000000001 seconds and 1e-9 seconds.</dd>
+      <dt>percentile</dt>
+      <dd>The value below which a given percentage of values fall.</dd>
+      <dt>ppb, parts per billion</dt>
+      <dd>Ratio between two values: 1 ppb = one in one billion = 1/1,000,000,000 = 1e-9 = 0.0000001%</dd>
+      <dt>ppm, parts per million</dt>
+      <dd>Ratio between two values: 1 ppm = one in one million = 1/1,000,000 = 1e-6 = 0.0001%</dd>
+      <dt>refclock</dt>
+      <dd>Reference clock, a local GPS module or other local source of time.</dd>
+      <dt>remote clock</dt>
+      <dd>Any clock reached over the network, LAN or WAN. Also called a peer or server.</dd>
+      <dt>time offset</dt>
+      <dd>The difference between the ntpd calculated time and the local system clock's time. Also called phase offset.</dd>
+      <dt>&sigma;, sigma</dt>
+      <dd>Sigma denotes the standard deviation (SD) and is centered on the arithmetic mean of the data set. The SD is simply the square root of the variance of the data set. Smaller is better. The formula for sigma is: "&sigma; = &radic;[ &sum;(x<sub>i</sub>-mu)^2 / N ]".</dd>
+      <dt>skewness, Skew</dt>
+      <dd>The skewness of a random variable X is the third standardized moment and is a dimension-less ratio. A normal distribution has a skewness of zero.</dd>
+      <dt>upstream clock</dt>
+      <dd>Any server or reference clock used as a source of time.</dd>
+      <dt>&mu;s, us, microsecond</dt>
+      <dd>One millionth of a second, also one thousandth of a millisecond, 0.000001 seconds, and 1e-6 seconds.</dd>
+    </dl>
+  </details>
+
+  <div class="footer">
+    ntpviz 2.0 &mdash; powered by <a href="https://www.ntpsec.org/">NTPsec</a> &amp;
+    <a href="https://github.com/leeoniya/uPlot">uPlot</a>
+  </div>
+</div>
+
+<!-- Floating period toggle -->
+<div class="floating-toggle">
+  <button id="btn-1d" onclick="switchPeriod('1d')">1 Day</button>
+  <button id="btn-7d" onclick="switchPeriod('7d')">7 Days</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/uplot@1.6.31/dist/uPlot.iife.min.js"></script>
+<script>
+"use strict";
+
+// ─── State ───
+let currentPeriod = "1d";
+let charts = [];
+let dataCache = {};
+
+// ─── Colors (tuned for dark backgrounds) ───
+const C = {
+  blue:   "#60a5fa",
+  red:    "#f87171",
+  green:  "#4ade80",
+  orange: "#fb923c",
+  purple: "#c084fc",
+  teal:   "#2dd4bf",
+  pink:   "#f472b6",
+  gray:   "#94a3b8",
+};
+const PEER_COLORS = [C.blue, C.red, C.green, C.orange, C.purple, C.teal, C.pink, C.gray];
+
+// ─── Shared cursor sync key ───
+const syncKey = "ntpviz";
+
+// ─── Helpers ───
+function fmtDate(ts) {
+  return new Date(ts * 1000).toUTCString();
+}
+
+function fmtNum(v, decimals) {
+  if (v == null) return "\u2014";
+  if (Math.abs(v) >= 1e6) return v.toExponential(2);
+  if (Math.abs(v) >= 100) return v.toFixed(1);
+  return v.toFixed(decimals != null ? decimals : 4);
+}
+
+function getWidth(el) {
+  return Math.max(el.clientWidth - 32, 300);
+}
+
+// ─── Stats table HTML ───
+function statsTableHTML(metrics) {
+  if (!metrics || metrics.length === 0) return "";
+  let h = '<table class="stats-table"><thead><tr>';
+  h += '<th>Name</th><th>Min</th><th>1%</th><th>5%</th><th>50%</th><th>95%</th><th>99%</th><th>Max</th>';
+  h += '<th>90% Rng</th><th>98% Rng</th><th>StdDev</th><th>Mean</th><th>Units</th>';
+  h += '<th>Skew</th><th>Kurt</th></tr></thead><tbody>';
+  for (const m of metrics) {
+    h += '<tr><td>' + m.name + '</td>';
+    for (const k of ["min","p1","p5","p50","p95","p99","max","range_90","range_98","stddev","mean"]) {
+      h += '<td>' + fmtNum(m[k]) + '</td>';
+    }
+    h += '<td>' + m.unit + '</td>';
+    h += '<td>' + fmtNum(m.skewness, 2) + '</td>';
+    h += '<td>' + fmtNum(m.kurtosis, 2) + '</td>';
+    h += '</tr>';
+  }
+  h += '</tbody></table>';
+  return h;
+}
+
+// ─── Chart factory ───
+function makeChart(el, opts, data) {
+  const w = getWidth(el);
+  const defaults = {
+    width: w,
+    height: 280,
+    cursor: {
+      sync: { key: syncKey, setSeries: true },
+      drag: { x: true, y: false },
+    },
+    scales: { x: { time: true } },
+    axes: [
+      {
+        stroke: "#4a5568",
+        grid: { stroke: "rgba(255,255,255,0.04)" },
+        ticks: { stroke: "rgba(255,255,255,0.06)" },
+        font: "11px 'IBM Plex Mono'",
+      },
+      {
+        stroke: "#4a5568",
+        grid: { stroke: "rgba(255,255,255,0.04)" },
+        ticks: { stroke: "rgba(255,255,255,0.06)" },
+        size: 60,
+        font: "11px 'IBM Plex Mono'",
+      },
+    ],
+    legend: { show: true },
+  };
+
+  // Merge opts into defaults
+  const merged = Object.assign({}, defaults, opts);
+  if (opts.axes) {
+    merged.axes = opts.axes.map(function(a, i) { return Object.assign({}, defaults.axes[i] || {}, a); });
+  }
+  if (opts.scales) {
+    merged.scales = Object.assign({}, defaults.scales, opts.scales);
+  }
+
+  const u = new uPlot(merged, data, el);
+  charts.push(u);
+  return u;
+}
+
+// ─── Destroy all charts ───
+function destroyCharts() {
+  for (const c of charts) c.destroy();
+  charts = [];
+}
+
+// ─── Scroll reveal observer ───
+function observeReveal() {
+  var els = document.querySelectorAll('.card, .section-title');
+
+  var observer = new IntersectionObserver(function(entries) {
+    var visible = entries.filter(function(e) { return e.isIntersecting; })
+      .sort(function(a, b) { return a.boundingClientRect.top - b.boundingClientRect.top; });
+
+    visible.forEach(function(e, i) {
+      setTimeout(function() { e.target.classList.add('visible'); }, i * 60);
+      observer.unobserve(e.target);
+    });
+  }, { threshold: 0.05 });
+
+  els.forEach(function(el) {
+    el.classList.add('reveal');
+    observer.observe(el);
+  });
+}
+
+// ─── Build page sections ───
+function buildPage(loop, peers, gps, temps, summary) {
+  destroyCharts();
+
+  var main = document.getElementById("main-content");
+  main.textContent = "";
+
+  // Update header
+  document.getElementById("site-name").textContent = summary.sitename || "NTP Server";
+  document.getElementById("generated").textContent = "Generated: " + summary.generated + " UTC";
+  document.getElementById("period-info").textContent = "Period: " + summary.period_days + " day" + (summary.period_days > 1 ? "s" : "");
+
+  var metricsMap = {};
+  for (const m of summary.metrics) metricsMap[m.name] = m;
+
+  // ─── Local Clock Section ───
+  addSectionTitle(main, "Local Clock");
+
+  // Offset + Frequency (dual axis)
+  if (loop) {
+    var card = addCard(main, "Time / Frequency Offset");
+    var wrap = addChartWrap(card);
+    var times = loop.data.time;
+    makeChart(wrap, {
+      axes: [
+        {},
+        { label: "Time Offset (s)", stroke: C.blue, size: 70 },
+        { label: "Frequency (ppm)", stroke: C.red, side: 1, scale: "freq", size: 70,
+          grid: { show: false } },
+      ],
+      scales: { freq: {} },
+      series: [
+        {},
+        { label: "Time Offset", stroke: C.blue, width: 1.5 },
+        { label: "Frequency", stroke: C.red, width: 1.5, scale: "freq" },
+      ],
+    }, [times, loop.data.offset, loop.data.frequency]);
+
+    appendStatsTable(card, [metricsMap["Local Clock Time Offset"], metricsMap["Local Clock Frequency Offset"]].filter(Boolean));
+    addDesc(card, "Time and frequency offsets between ntpd calculated time and the local system clock. Frequency offset (red, ppm, right scale) and time offset (blue, left scale). From loopstats fields 3 (time) and 4 (frequency).");
+  }
+
+  // Jitter + Stability (full width, stacked)
+  if (loop) {
+    var jCard = addCard(main, "RMS Time Jitter");
+    var jWrap = addChartWrap(jCard);
+    makeChart(jWrap, {
+      series: [
+        {},
+        { label: "Time Jitter", stroke: C.green, width: 1.5, fill: "rgba(74,222,128,0.06)" },
+      ],
+    }, [loop.data.time, loop.data.jitter]);
+    appendStatsTable(jCard, [metricsMap["Local RMS Time Jitter"]].filter(Boolean));
+
+    var sCard = addCard(main, "RMS Frequency Jitter");
+    var sWrap = addChartWrap(sCard);
+    makeChart(sWrap, {
+      series: [
+        {},
+        { label: "Freq Jitter", stroke: C.orange, width: 1.5, fill: "rgba(251,146,60,0.06)" },
+      ],
+    }, [loop.data.time, loop.data.stability]);
+    appendStatsTable(sCard, [metricsMap["Local RMS Frequency Jitter"]].filter(Boolean));
+  }
+
+  // Offset Histogram
+  if (summary.histogram && summary.histogram.counts.length > 0) {
+    var hCard = addCard(main, "Time Offset Histogram (" + summary.histogram.unit + ")");
+    var hWrap = addChartWrap(hCard);
+    buildHistogram(hWrap, summary.histogram);
+  }
+
+  // ─── Environment Section ───
+  if (loop && temps) {
+    addSectionTitle(main, "Environment");
+
+    var eCard = addCard(main, "Frequency vs Temperature");
+    var eWrap = addChartWrap(eCard);
+    var sensor0 = temps.sensors[0];
+    var tempData = temps.data[sensor0];
+
+    makeChart(eWrap, {
+      axes: [
+        {},
+        { label: "Frequency (ppm)", stroke: C.red, size: 70 },
+        { label: "Temperature (\u00b0C)", stroke: C.teal, side: 1, scale: "temp", size: 60,
+          grid: { show: false } },
+      ],
+      scales: { temp: {} },
+      series: [
+        {},
+        { label: "Frequency", stroke: C.red, width: 1.5 },
+        { label: "Temp " + sensor0, stroke: C.teal, width: 1.5, scale: "temp" },
+      ],
+    }, [loop.data.time, loop.data.frequency, interpolateToAxis(loop.data.time, tempData.time, tempData.temperature)]);
+
+    var tCard = addCard(main, "Temperature");
+    var tWrap = addChartWrap(tCard);
+    makeChart(tWrap, {
+      series: [
+        {},
+        { label: sensor0 + " (\u00b0C)", stroke: C.teal, width: 1.5, fill: "rgba(45,212,191,0.06)" },
+      ],
+    }, [tempData.time, tempData.temperature]);
+    appendStatsTable(tCard, [metricsMap["Temp " + sensor0]].filter(Boolean));
+
+  } else if (temps) {
+    addSectionTitle(main, "Environment");
+    for (const sensor of temps.sensors) {
+      var d = temps.data[sensor];
+      var tsCard = addCard(main, "Temperature: " + sensor);
+      var tsWrap = addChartWrap(tsCard);
+      makeChart(tsWrap, {
+        series: [
+          {},
+          { label: sensor + " (\u00b0C)", stroke: C.teal, width: 1.5 },
+        ],
+      }, [d.time, d.temperature]);
+      appendStatsTable(tsCard, [metricsMap["Temp " + sensor]].filter(Boolean));
+    }
+  }
+
+  // ─── GPS Section ───
+  if (gps) {
+    addSectionTitle(main, "GPS");
+    var gCard = addCard(main, "TDOP & Satellites");
+    var gWrap = addChartWrap(gCard);
+    makeChart(gWrap, {
+      axes: [
+        {},
+        { label: "TDOP", stroke: C.purple, size: 60 },
+        { label: "Satellites", stroke: C.green, side: 1, scale: "nsat", size: 50,
+          grid: { show: false } },
+      ],
+      scales: { nsat: {} },
+      series: [
+        {},
+        { label: "TDOP", stroke: C.purple, width: 1.5 },
+        { label: "nSat", stroke: C.green, width: 1.5, scale: "nsat" },
+      ],
+    }, [gps.time, gps.tdop, gps.nsat]);
+    appendStatsTable(gCard, [metricsMap["TDOP"], metricsMap["nSats"]].filter(Boolean));
+    addDesc(gCard, "Time Dilution of Precision (TDOP) and number of satellites tracked by the GPS receiver.");
+  }
+
+  // ─── Peers Section ───
+  if (peers && peers.peers.length > 0) {
+    addSectionTitle(main, "Peers");
+
+    var oCard = addCard(main, "All Peer Offsets");
+    var oWrap = addChartWrap(oCard);
+    buildMultiPeerChart(oWrap, peers, "offset", "Offset");
+
+    var jCard2 = addCard(main, "All Peer Jitters");
+    var jWrap2 = addChartWrap(jCard2);
+    buildMultiPeerChart(jWrap2, peers, "jitter", "Jitter");
+
+    for (var i = 0; i < peers.peers.length; i++) {
+      var pname = peers.peers[i];
+      var pd = peers.data[pname];
+      var color = PEER_COLORS[i % PEER_COLORS.length];
+
+      var pRow = document.createElement("div");
+      pRow.className = "chart-row";
+      main.appendChild(pRow);
+
+      var poCard = addCard(pRow, pname + " Offset");
+      var poWrap = addChartWrap(poCard);
+      makeChart(poWrap, {
+        series: [ {}, { label: "Offset", stroke: color, width: 1.5 } ],
+      }, [pd.time, pd.offset]);
+
+      var pjCard = addCard(pRow, pname + " Jitter");
+      var pjWrap = addChartWrap(pjCard);
+      makeChart(pjWrap, {
+        series: [ {}, { label: "Jitter", stroke: color, width: 1.5 } ],
+      }, [pd.time, pd.jitter]);
+
+      var peerStats = [metricsMap["Server Offset " + pname], metricsMap["Server Jitter " + pname]].filter(Boolean);
+      if (peerStats.length > 0) {
+        var psCard = addCard(main);
+        appendStatsTable(psCard, peerStats);
+      }
+    }
+  }
+
+  // ─── Full Summary Table ───
+  if (summary.metrics.length > 0) {
+    addSectionTitle(main, "Summary Statistics");
+    var sumCard = addCard(main);
+    appendStatsTable(sumCard, summary.metrics);
+  }
+
+  handleResize();
+  observeReveal();
+}
+
+// ─── Multi-peer overlay chart ───
+function buildMultiPeerChart(el, peers, field, label) {
+  var baseTimes = [];
+  for (const p of peers.peers) {
+    if (peers.data[p].time.length > baseTimes.length)
+      baseTimes = peers.data[p].time;
+  }
+
+  var series = [{}];
+  var data = [baseTimes];
+
+  for (var i = 0; i < peers.peers.length; i++) {
+    var pname = peers.peers[i];
+    var pd = peers.data[pname];
+    series.push({
+      label: pname,
+      stroke: PEER_COLORS[i % PEER_COLORS.length],
+      width: 1.5,
+    });
+    data.push(interpolateToAxis(baseTimes, pd.time, pd[field]));
+  }
+
+  makeChart(el, { series: series }, data);
+}
+
+// ─── Histogram with canvas ───
+function buildHistogram(el, histo) {
+  var canvas = document.createElement("canvas");
+  var w = getWidth(el);
+  var h = 220;
+  canvas.width = w * (window.devicePixelRatio || 1);
+  canvas.height = h * (window.devicePixelRatio || 1);
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+  el.appendChild(canvas);
+
+  var ctx = canvas.getContext("2d");
+  ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+
+  var edges = histo.bin_edges;
+  var counts = histo.counts;
+  var maxCount = Math.max.apply(null, counts);
+  var nBins = counts.length;
+
+  var padL = 60, padR = 16, padT = 16, padB = 36;
+  var plotW = w - padL - padR;
+  var plotH = h - padT - padB;
+
+  var barW = plotW / nBins;
+
+  // Grid lines
+  ctx.strokeStyle = "rgba(255,255,255,0.05)";
+  ctx.lineWidth = 1;
+  var nGrid = 5;
+  for (var i = 0; i <= nGrid; i++) {
+    var y = padT + plotH - (plotH * i / nGrid);
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+    ctx.fillStyle = "#4a5568";
+    ctx.font = "11px 'IBM Plex Mono', monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(Math.round(maxCount * i / nGrid), padL - 6, y + 4);
+  }
+
+  // Bars
+  ctx.fillStyle = "rgba(232,153,62,0.45)";
+  ctx.strokeStyle = "rgba(232,153,62,0.75)";
+  ctx.lineWidth = 0.5;
+  for (var i = 0; i < nBins; i++) {
+    var barH = (counts[i] / maxCount) * plotH;
+    var x = padL + i * barW;
+    var y2 = padT + plotH - barH;
+    ctx.fillRect(x, y2, barW - 1, barH);
+    ctx.strokeRect(x, y2, barW - 1, barH);
+  }
+
+  // X axis labels
+  ctx.fillStyle = "#4a5568";
+  ctx.font = "11px 'IBM Plex Mono', monospace";
+  ctx.textAlign = "center";
+  var nLabels = Math.min(8, nBins);
+  var step = Math.ceil(nBins / nLabels);
+  for (var i = 0; i <= nBins; i += step) {
+    var x = padL + i * barW;
+    var val = i < edges.length ? edges[i] : edges[edges.length - 1];
+    ctx.fillText(fmtNum(val, 3), x, h - padB + 16);
+  }
+
+  // Y label
+  ctx.save();
+  ctx.translate(14, padT + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#4a5568";
+  ctx.fillText("Count", 0, 0);
+  ctx.restore();
+}
+
+// ─── Simple nearest-neighbor interpolation ───
+function interpolateToAxis(targetTimes, srcTimes, srcValues) {
+  if (srcTimes.length === 0) return new Array(targetTimes.length).fill(null);
+  var result = new Array(targetTimes.length);
+  var j = 0;
+  for (var i = 0; i < targetTimes.length; i++) {
+    while (j < srcTimes.length - 1 && srcTimes[j + 1] <= targetTimes[i]) j++;
+    if (Math.abs(srcTimes[j] - targetTimes[i]) < 300) {
+      result[i] = srcValues[j];
+    } else {
+      result[i] = null;
+    }
+  }
+  return result;
+}
+
+// ─── DOM helpers ───
+function addSectionTitle(parent, text) {
+  var h = document.createElement("div");
+  h.className = "section-title";
+  h.textContent = text;
+  parent.appendChild(h);
+  return h;
+}
+
+function addCard(parent, title) {
+  var card = document.createElement("div");
+  card.className = "card";
+  if (title) {
+    var h = document.createElement("h3");
+    h.textContent = title;
+    card.appendChild(h);
+  }
+  parent.appendChild(card);
+  return card;
+}
+
+function addChartWrap(card) {
+  var wrap = document.createElement("div");
+  wrap.className = "chart-wrap";
+  card.appendChild(wrap);
+  return wrap;
+}
+
+function addDesc(card, text) {
+  var p = document.createElement("p");
+  p.className = "description";
+  p.textContent = text;
+  card.appendChild(p);
+}
+
+function appendStatsTable(card, metrics) {
+  if (!metrics || metrics.length === 0) return;
+  var container = document.createElement("div");
+  container.innerHTML = statsTableHTML(metrics);
+  while (container.firstChild) card.appendChild(container.firstChild);
+}
+
+// ─── Resize handling ───
+function handleResize() {
+  for (const c of charts) {
+    var wrap = c.root.parentElement;
+    if (wrap) {
+      c.setSize({ width: getWidth(wrap), height: 280 });
+    }
+  }
+}
+var resizeTimer;
+window.addEventListener("resize", function() {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(handleResize, 150);
+});
+
+// ─── Data loading ───
+async function loadPeriod(period) {
+  if (dataCache[period]) return dataCache[period];
+
+  var base = "data/" + period + "/";
+  var results = await Promise.allSettled([
+    fetch(base + "loopstats.json").then(function(r) { return r.ok ? r.json() : null; }),
+    fetch(base + "peerstats.json").then(function(r) { return r.ok ? r.json() : null; }),
+    fetch(base + "gpsd.json").then(function(r) { return r.ok ? r.json() : null; }),
+    fetch(base + "temps.json").then(function(r) { return r.ok ? r.json() : null; }),
+    fetch(base + "summary.json").then(function(r) { return r.ok ? r.json() : null; }),
+  ]);
+
+  var result = {
+    loop: results[0].status === "fulfilled" ? results[0].value : null,
+    peers: results[1].status === "fulfilled" ? results[1].value : null,
+    gps: results[2].status === "fulfilled" ? results[2].value : null,
+    temps: results[3].status === "fulfilled" ? results[3].value : null,
+    summary: results[4].status === "fulfilled" ? results[4].value : null,
+  };
+
+  if (result.summary) dataCache[period] = result;
+  return result;
+}
+
+async function switchPeriod(period) {
+  currentPeriod = period;
+  window.location.hash = period;
+
+  document.getElementById("btn-1d").classList.toggle("active", period === "1d");
+  document.getElementById("btn-7d").classList.toggle("active", period === "7d");
+
+  // Preserve scroll position across rebuild
+  var savedScroll = window.scrollY;
+
+  var main = document.getElementById("main-content");
+  main.textContent = "";
+  var loading = document.createElement("div");
+  loading.className = "loading";
+  loading.textContent = "Loading data...";
+  main.appendChild(loading);
+
+  try {
+    var data = await loadPeriod(period);
+    if (data.summary) {
+      buildPage(data.loop, data.peers, data.gps, data.temps, data.summary);
+      window.scrollTo({ top: savedScroll, behavior: "instant" });
+    } else {
+      main.textContent = "";
+      var msg = document.createElement("div");
+      msg.className = "loading";
+      msg.textContent = "No data available for this period.";
+      main.appendChild(msg);
+    }
+  } catch (e) {
+    main.textContent = "";
+    var errMsg = document.createElement("div");
+    errMsg.className = "loading";
+    errMsg.textContent = "Error loading data: " + e.message;
+    main.appendChild(errMsg);
+  }
+}
+
+// ─── Init ───
+(function init() {
+  var hash = window.location.hash.replace("#", "");
+  var period = (hash === "1d" || hash === "7d") ? hash : "1d";
+  switchPeriod(period);
+})();
+</script>
+</body>
+</html>

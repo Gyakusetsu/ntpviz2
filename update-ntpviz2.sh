@@ -4,8 +4,8 @@
 
 set -e
 
-BASEDIR=/home/rimuru
-OUTDIR=$BASEDIR/ntpviz
+BASEDIR=/home/rimuru/ntpviz2
+OUTDIR=$BASEDIR
 LOGDIR=/var/log/ntpsec
 SCRIPT=$BASEDIR/ntpviz2-build.py
 

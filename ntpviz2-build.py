@@ -174,8 +174,11 @@ def build_loopstats(stats, bucket_secs):
     }
 
 
-def build_peerstats(stats, bucket_secs):
+def build_peerstats(stats):
     """Build peerstats JSON from NTPStats object.
+
+    Emits raw (non-downsampled) data so that short-lived spikes and noise
+    remain visible — matching what the legacy gnuplot ntpviz shows.
 
     peerstats row format after unixize:
         [ms_int, unix_str, peer, status, offset, delay, dispersion, jitter]
@@ -191,13 +194,10 @@ def build_peerstats(stats, bucket_secs):
         offset = np.array([float(r[4]) for r in rows])
         jitter = np.array([float(r[7]) for r in rows])
 
-        t_o, d_offset = downsample(times, offset, bucket_secs)
-        t_j, d_jitter = downsample(times, jitter, bucket_secs)
-
         peers[label] = {
-            "time": round_list(t_o, 1),
-            "offset": round_list(d_offset, 10),
-            "jitter": round_list(d_jitter, 10),
+            "time": round_list(times, 1),
+            "offset": round_list(offset, 10),
+            "jitter": round_list(jitter, 10),
         }
 
     return {
@@ -362,7 +362,7 @@ def main():
         if loopdata:
             write_json(os.path.join(outdir, "loopstats.json"), loopdata)
 
-        peerdata = build_peerstats(stats, bucket_secs)
+        peerdata = build_peerstats(stats)
         if peerdata:
             write_json(os.path.join(outdir, "peerstats.json"), peerdata)
 
